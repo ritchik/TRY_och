@@ -1,9 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, PasswordField, BooleanField, TextAreaField
+from wtforms import StringField, SubmitField, PasswordField, TextAreaField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
 import re
 import secrets
-from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from zxcvbn import zxcvbn
 
@@ -13,7 +12,6 @@ class PasswordManager:
     
     @staticmethod
     def validate_password_strength(password, username=None, email=None):
-        """Validate password strength with detailed feedback"""
         if not password:
             return {
                 'score': 0,
@@ -50,7 +48,6 @@ class PasswordManager:
     
     @staticmethod
     def hash_password(password, salt=None):
-        """Hash password with additional salt"""
         if salt is None:
             salt = secrets.token_hex(16)
         
@@ -64,7 +61,6 @@ class PasswordManager:
     
     @staticmethod
     def verify_password(stored_password, provided_password):
-        """Verify password against stored hash"""
         try:
             salt, hash_part = stored_password.split('$', 1)
             return check_password_hash(hash_part, f"{salt}{provided_password}")
@@ -73,30 +69,14 @@ class PasswordManager:
 
 
 class BasePasswordForm(FlaskForm):
-    """Base class for forms with password validation"""
     
     def validate_password_strength(self, password_field, username=None, email=None):
-        """Common password validation logic"""
         strength_result = PasswordManager.validate_password_strength(
             password_field.data, username, email
         )
         
         if not strength_result['is_strong']:
-            reasons = []
-            checks = strength_result['additional_checks']
-            
-            if not checks['min_length']:
-                reasons.append("at least 12 characters")
-            if not checks['has_uppercase']:
-                reasons.append("one uppercase letter")
-            if not checks['has_lowercase']:
-                reasons.append("one lowercase letter")
-            if not checks['has_digit']:
-                reasons.append("one digit")
-            if not checks['has_special_char']:
-                reasons.append("one special character")
-            
-            raise ValidationError(f"Password must contain: {', '.join(reasons)}")
+            raise ValidationError("Password is not hard enough")
 
 
 class LoginForm(FlaskForm):
@@ -124,7 +104,6 @@ class RegistrationForm(BasePasswordForm):
     submit = SubmitField('Register')
 
     def validate_username(self, field):
-        """Validate username format and uniqueness"""
         if not re.match(r'^[a-zA-Z0-9_]{3,20}$', field.data):
             raise ValidationError("Username can only contain letters, numbers, and underscores")
         
@@ -133,74 +112,16 @@ class RegistrationForm(BasePasswordForm):
             raise ValidationError("Username already exists")
 
     def validate_email(self, field):
-        """Check if email already exists"""
         from app.models import User
         if User.query.filter_by(email=field.data).first():
             raise ValidationError("Email already registered")
 
     def validate_password(self, field):
-        """Validate password strength"""
         self.validate_password_strength(
             field, 
             self.username.data if self.username.data else None,
             self.email.data if self.email.data else None
         )
-
-
-class PasswordResetRequestForm(FlaskForm):
-    """Form for requesting password reset (formerly ForgotPasswordForm)"""
-    email = StringField('Email', validators=[
-        DataRequired(message="Email is required"), 
-        Email(message="Please enter a valid email address")
-    ])
-    submit = SubmitField('Send Reset Link')
-
-
-class PasswordResetForm(BasePasswordForm):
-    """Form for actually resetting the password (with token)"""
-    password = PasswordField('New Password', validators=[
-        DataRequired(message="Password is required")
-    ])
-    confirm_password = PasswordField('Confirm Password', validators=[
-        DataRequired(message="Password confirmation is required"),
-        EqualTo('password', message='Passwords must match')
-    ])
-    submit = SubmitField('Reset Password')
-
-    def validate_password(self, field):
-        """Validate new password strength"""
-        self.validate_password_strength(field)
-
-
-class ChangePasswordForm(BasePasswordForm):
-    """Form for changing password when logged in"""
-    current_password = PasswordField('Current Password', validators=[
-        DataRequired(message="Current password is required")
-    ])
-    new_password = PasswordField('New Password', validators=[
-        DataRequired(message="New password is required")
-    ])
-    confirm_password = PasswordField('Confirm New Password', validators=[
-        DataRequired(message="Password confirmation is required"),
-        EqualTo('new_password', message='Passwords must match')
-    ])
-    submit = SubmitField('Change Password')
-
-    def validate_current_password(self, field):
-        """Verify current password"""
-        from flask_login import current_user
-        if not PasswordManager.verify_password(current_user.password_hash, field.data):
-            raise ValidationError("Current password is incorrect")
-
-    def validate_new_password(self, field):
-        """Validate new password strength"""
-        from flask_login import current_user
-        self.validate_password_strength(
-            field, 
-            current_user.username if hasattr(current_user, 'username') else None,
-            current_user.email if hasattr(current_user, 'email') else None
-        )
-
 
 class Verify2FAForm(FlaskForm):
     otp = StringField('OTP Code', validators=[
@@ -210,11 +131,30 @@ class Verify2FAForm(FlaskForm):
     submit = SubmitField('Verify')
 
     def validate_otp(self, field):
-        """Validate OTP format"""
+         
         if not field.data.isdigit():
             raise ValidationError("OTP code must contain only digits")
 
 
- 
- 
- 
+class SendMessageForm(BasePasswordForm):
+     
+    recipient = StringField('Recipient Username', validators=[
+        DataRequired(message="Recipient is required"),
+        Length(min=3, max=20, message="Username must be between 3-20 characters")
+    ])
+    title = StringField('Title', validators=[
+        DataRequired(message="Title is required"),
+        Length(max=255, message="Title must be less than 255 characters")
+    ])
+    content = TextAreaField('Message', validators=[
+        DataRequired(message="Message content is required")
+    ])
+     
+    submit = SubmitField('Send Encrypted Message')
+
+    def validate_recipient(self, field):
+         
+        from app.models import User
+        user = User.query.filter_by(username=field.data).first()
+        if not user:
+            raise ValidationError("User not found") 
