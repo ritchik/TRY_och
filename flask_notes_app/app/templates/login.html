@@ -1,104 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <style>
-        /* --- TWOJE STYLE --- */
-        .lockout-message {
-            background-color: #ffecec;
-            border: 1px solid #f5aca6;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 15px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-        .countdown-container {
-            display: flex;
-            align-items: center;
-            margin-top: 10px;
-        }
-        .countdown-timer {
-            font-size: 24px;
-            font-weight: bold;
-            color: #d9534f;
-            margin: 0 10px;
-        }
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #d9534f;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .login-form {
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .flash-message {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .flash-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .links {
-            margin-top: 20px;
-            text-align: center;
-        }
-        .links a {
-            margin: 0 10px;
-            color: #007bff;
-            text-decoration: none;
-        }
-    </style>
+
 </head>
+
 <body>
     <div class="login-form">
-        <h1 style="text-align: center;">Login</h1>
+        <h1>Login</h1>
 
         {% if is_locked %}
         <div class="lockout-message">
@@ -108,49 +20,74 @@
                 <div class="countdown-timer" id="countdown" data-lock="{{ lock_end_timestamp }}"></div>
                 <span>seconds</span>
             </div>
-            <p style="margin-top: 10px; font-size: 0.9em;">You'll be able to try again automatically</p>
+            <p>You'll be able to try again automatically</p>
         </div>
         {% endif %}
 
         <form method="POST" action="{{ url_for('main.login') }}">
-            {{ form.hidden_tag() }}
 
-            <div style="position: absolute; left: -9999px; top: -9999px;">
-               <label for="honeypot">Leave this empty</label>
-               <input type="text" id="honeypot" name="honeypot" tabindex="-1" autocomplete="off">
+
+            <div style="display:none">
+                <label for="honeypot">Leave this empty</label>
+                <input type="text" id="honeypot" name="honeypot" tabindex="-1" autocomplete="off">
             </div>
 
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" placeholder="Username" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" placeholder="Password" required>
             </div>
-            
+
             <button type="submit" id="login-btn" {% if is_locked %}disabled{% endif %}>
                 Login
             </button>
         </form>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="flash-message flash-{{ category }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-message flash-{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         <div class="links">
             <a href="{{ url_for('main.register') }}">Register</a>
-            <a href="{{ url_for('main.forgot_password') }}">Reset password</a>
+
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const countdownEl = document.getElementById('countdown');
+            if (countdownEl) {
+                const lockEndTime = parseInt(countdownEl.dataset.lock);
+
+                function updateTimer() {
+                    const now = Math.floor(Date.now() / 1000);
+                    const remaining = lockEndTime - now;
+
+                    if (remaining > 0) {
+                        countdownEl.textContent = remaining;
+
+                        setTimeout(updateTimer, 1000);
+                    } else {
+                        countdownEl.textContent = "0";
+                        location.reload();
+                    }
+                }
+
+                updateTimer();
+            }
+        });
+    </script>
 </body>
+
 </html>

@@ -1,22 +1,19 @@
-from flask import Flask, g
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_mail import Mail 
 from flask_migrate import Migrate
-from flask_wtf.csrf import CSRFProtect
+
 import redis
 import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_talisman import Talisman
-import secrets
+
 
  
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
-mail = Mail()
-csrf = CSRFProtect()
+
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
 def create_app():
@@ -34,20 +31,15 @@ def create_app():
         PROPAGATE_EXCEPTIONS=True,
         DEBUG=os.getenv('FLASK_DEBUG', 'False').lower() == 'true',
          
-        MAIL_SERVER=os.getenv('MAIL_SERVER', 'smtp.gmail.com'),
-        MAIL_PORT=int(os.getenv('MAIL_PORT', 587)),
-        MAIL_USE_TLS=os.getenv('MAIL_USE_TLS', 'True').lower() == 'true',
-        MAIL_USERNAME=os.getenv('MAIL_USERNAME', 'your_email@gmail.com'),
-        MAIL_PASSWORD=os.getenv('MAIL_PASSWORD', 'your_app_specific_password'),
-        MAIL_DEFAULT_SENDER=os.getenv('MAIL_DEFAULT_SENDER', 'your_email@gmail.com')
+
+        WTF_CSRF_ENABLED=False
     )
 
      
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
-    mail.init_app(app)
-    csrf.init_app(app)
+
 
      
     login_manager.login_view = 'main.login'
@@ -62,41 +54,12 @@ def create_app():
     limiter.init_app(app)
     limiter.default_limits = ["200 per day", "50 per hour"]
 
-     
-    Talisman(
-        app,
-        content_security_policy={
-            'default-src': "'self'",
-            'script-src': ["'self'", "'unsafe-inline'", "https://trusted.cdn.com"],
-            'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-            'img-src': ["'self'", "https:","data:"],
-            'font-src': ["'self'", "https://fonts.gstatic.com"],
-        },
-        content_security_policy_nonce_in=['script-src'],
-        force_https=True,
-        strict_transport_security=True,
-        session_cookie_secure=True,
-         
-    )
 
-     
     @login_manager.user_loader
     def load_user(user_id):
         from app.models import User
         return User.query.get(int(user_id))
-    
-
-    @app.before_request
-    def set_csp_nonce():
-     
-       g.csp_nonce = secrets.token_hex(16)
-    
-     
-    @app.context_processor
-    def inject_csp_nonce():
-        return dict(csp_nonce=lambda: g.csp_nonce)
-
-     
+         
     from app.routes import main
     app.register_blueprint(main)
 

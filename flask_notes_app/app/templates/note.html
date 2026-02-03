@@ -1,124 +1,37 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ note.title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
-
-        h1 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 30px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .note {
-            background-color: white;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            border-left: 5px solid #3498db;
-        }
-
-        form {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            max-width: 400px;
-            margin: 0 auto;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2c3e50;
-            font-weight: bold;
-        }
-
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #bdc3c7;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-
-        button[type="submit"] {
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s;
-        }
-
-        button[type="submit"]:hover {
-            background-color: #27ae60;
-        }
-
-        a {
-            display: inline-block;
-            margin-top: 20px;
-            padding: 10px 15px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s;
-        }
-
-        a:hover {
-            background-color: #2980b9;
-        }
-
-        p[style="color: red;"] {
-            background-color: #ffebee;
-            padding: 10px;
-            border-radius: 4px;
-            border-left: 3px solid #e74c3c;
-            margin-top: 15px;
+        .note-content {
+            white-space: pre-wrap;
+            font-family: inherit;
         }
     </style>
 </head>
 
 <body>
+    <h1>{{ note.title }}</h1>
+
     {% if note.encrypted %}
-    <h1>{{ note.title }}</h1>
     {% if content %}
-    <div class="note">
-        {{ content | safe }}
-    </div>
+    {# Decryption Successful #}
+    <div class="note note-content">{{ content }}</div>
+
     {% if note.attachments %}
-    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dfe6e9;">
-        <h3 style="margin-top: 0; font-size: 1.1rem; color: #2d3436;">Attachments</h3>
-        <ul style="padding-left: 20px; margin-bottom: 0;">
+    <div>
+        <h3>Attachments</h3>
+        <ul>
             {% for attachment in note.attachments %}
-            <li style="margin-bottom: 8px;">
+            <li>
                 <strong>{{ attachment.filename }}</strong>
-                <span style="color: #636e72; font-size: 0.9em;">({{ (attachment.size / 1024)|round(1) }} KB)</span>
-                <form action="{{ url_for('main.download_attachment', attachment_id=attachment.id) }}" method="POST"
-                    style="display: inline; margin-left: 10px;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    {% if password %}
-                    <input type="hidden" name="password" value="{{ password }}">
-                    {% endif %}
-                    <button type="submit"
-                        style="padding: 4px 10px; font-size: 0.8rem; background: #0984e3;">Download</button>
+                <span>({{ (attachment.size / 1024)|round(1) }} KB)</span>
+                <form action="{{ url_for('main.download_attachment', attachment_id=attachment.id) }}" method="POST">
+                    <button type="submit">Download</button>
                 </form>
             </li>
             {% endfor %}
@@ -127,48 +40,42 @@
     {% endif %}
 
     {% else %}
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label for="password">Enter password to decrypt:</label>
-        <input type="password" name="password" required>
-        <button type="submit">Submit</button>
-    </form>
-    {% if password_attempted and not content %}
-    <p style="color: red;">Incorrect password. Please try again.</p>
-    {% endif %}
-    {% endif %}
-    {% else %}
-    <h1>{{ note.title }}</h1>
-    <div class="note">
-        {{ note.content_html | safe }}
-
+    {# Decryption Failed or Key Missing #}
+    <div class="alert alert-danger"
+        style="color: red; padding: 10px; border: 1px solid red; background-color: #ffe6e6;">
+        <strong>Access Denied:</strong> Unable to decrypt this message.
     </div>
+    <div class="note note-content" style="filter: blur(5px); user-select: none;">
+        [ENCRYPTED DATA PLACEHOLDER]
+    </div>
+    {% endif %}
+
+    {% else %}
+    {# Unencrypted Note (Legacy or Public) #}
+    <div class="note note-content">
+        {{ note.content_html }}
+    </div>
+
     {% if note.attachments %}
-    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dfe6e9;">
-        <h3 style="margin-top: 0; font-size: 1.1rem; color: #2d3436;">Attachments</h3>
-        <ul style="padding-left: 20px; margin-bottom: 0;">
+    <div>
+        <h3>Attachments</h3>
+        <ul>
             {% for attachment in note.attachments %}
-            <li style="margin-bottom: 8px;">
+            <li>
                 <strong>{{ attachment.filename }}</strong>
-                <span style="color: #636e72; font-size: 0.9em;">({{ (attachment.size / 1024)|round(1) }} KB)</span>
-                <form action="{{ url_for('main.download_attachment', attachment_id=attachment.id) }}" method="POST"
-                    style="display: inline; margin-left: 10px;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    {% if password %}
-                    <input type="hidden" name="password" value="{{ password }}">
-                    {% endif %}
-                    <button type="submit"
-                        style="padding: 4px 10px; font-size: 0.8rem; background: #0984e3;">Download</button>
+                <span>({{ (attachment.size / 1024)|round(1) }} KB)</span>
+                <form action="{{ url_for('main.download_attachment', attachment_id=attachment.id) }}" method="POST">
+                    <button type="submit">Download</button>
                 </form>
             </li>
             {% endfor %}
         </ul>
     </div>
     {% endif %}
-
     {% endif %}
 
-    <a href="{{ url_for('main.profile') }}">Powrót do profilu</a>
+    <br><br>
+    <a href="{{ url_for('main.profile') }}">Back to Profile</a>
 </body>
 
 </html>
