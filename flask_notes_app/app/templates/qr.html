@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2FA Authentication</title>
+
+</head>
+
+<body>
+    <div class="login-form">
+        <h1>Two-Factor Authentication</h1>
+
+        {% if not current_user.is_2fa_verified %}
+        <div class="setup-instructions">
+            <p>To access your account, please:</p>
+            <ol class="instructions-list">
+                <li>Install a 2FA app like Google Authenticator or Authy</li>
+                <li>Scan the QR code below with your app</li>
+            </ol>
+        </div>
+
+        <div class="qr-section">
+            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+        </div>
+        {% endif %}
+         
+        <div class="links">
+            <a href="{{ url_for('main.login') }}">Login</a>
+        </div>
+    </div>
+</body>
+
+</html>

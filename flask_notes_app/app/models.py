@@ -1,22 +1,40 @@
 from flask_login import UserMixin
 from datetime import datetime, timezone
-
+from flask import session
 from app import db
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+
+from app.services.crypto_service import CryptoService
  
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    totp_secret = db.Column(db.String(32), nullable=True)   
-    is_2fa_verified = db.Column(db.Boolean, default=False)   
+    _totp_secret = db.Column('totp_secret',db.String(500), nullable=False)   
     notes = db.relationship('Note', backref='author', lazy=True)
    
     public_key = db.Column(db.Text, nullable=True)
     private_key = db.Column(db.Text, nullable=True)
 
+    @property
+    def totp_secret(self):
+        return CryptoService.decrypt_totp(self._totp_secret)
+    
+    @totp_secret.setter
+    def totp_secret(self, value):
+        self._totp_secret = CryptoService.encrypt_totp(value)
+
+    @property
+    def is_2fa_verified(self) -> bool:
+        return session.get(f'2fa_verified_{self.id}', False)
+
+    @is_2fa_verified.setter
+    def is_2fa_verified(self, value: bool):
+        session[f'2fa_verified_{self.id}'] = value
+  
+ 
     def generate_keys(self):
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
  
