@@ -235,9 +235,9 @@ def register():
                     username=form.username.data,
                     email=form.email.data,
                     password_hash=PasswordManager.hash_password(form.password.data),
-                    totp_secret=pyotp.random_base32()
                 )
                 user.generate_keys()
+                user.totp_secret = pyotp.random_base32()
                 db.session.add(user)
                 db.session.commit()
                 session["pending_user_id"] = user.id
