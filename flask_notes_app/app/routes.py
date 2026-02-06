@@ -30,7 +30,8 @@ from app.forms import (
     SendMessageForm
 )
 
-from app.services import NoteService, CryptoService
+from app.services.note_service import NoteService
+from app.services.crypto_service import CryptoService
  
 def check_honeypot(request):
      
@@ -53,8 +54,7 @@ def index():
 def login():
     check_honeypot(request)
     
-    if current_user.is_authenticated:
-        return redirect(url_for('main.profile'))
+     
     
     form = LoginForm()
     
@@ -106,12 +106,13 @@ def login():
             session.pop('lock_time', None)
             session.pop('lockout_phase', None)
             session.pop('first_failed_time', None)
-            login_user(user)
+            session['2fa_user_id'] = user.id
+             
+            return redirect(url_for('main.verify_2fa'))
 
 
-
-            flash('Login successful!', 'success')
-            return redirect(url_for('main.profile'))
+             
+            
 
         else:
             session['failed_attempts'] = session.get('failed_attempts', 0) + 1
@@ -166,8 +167,8 @@ def profile():
 @login_required
 def logout():
 
-    current_user.is_2fa_verified = False   
-    db.session.commit()
+    
+    session.pop(f'2fa_verified_{current_user.id}', None)
     logout_user()  
     session.clear()   
     flash("You have been logged out.", "info")
@@ -234,18 +235,52 @@ def register():
                     username=form.username.data,
                     email=form.email.data,
                     password_hash=PasswordManager.hash_password(form.password.data),
-                    totp_secret=pyotp.random_base32()
                 )
                 user.generate_keys()
+                user.totp_secret = pyotp.random_base32()
                 db.session.add(user)
                 db.session.commit()
+                session["pending_user_id"] = user.id
+                session.modified = True
+
                 flash('Registration successful!', 'success')
-                return redirect(url_for('main.login'))
+                return redirect(url_for('main.qr'))
+            
             except Exception as e:
                 db.session.rollback()
                 flash(f'Registration error: {str(e)}', 'error')
 
     return render_template('register.html', form=form)
+
+
+@main.route('/qr')
+def qr():
+    user_id = session.get("pending_user_id")
+    if not user_id:
+        abort(403)
+
+    user = User.query.get(user_id)
+    if not user:
+        abort(404)
+     
+    totp = pyotp.TOTP(user.totp_secret)
+    provisioning_uri = totp.provisioning_uri(
+        name=user.username,
+        issuer_name="SecureNotes"
+    )
+     
+    qr = pyqrcode.create(provisioning_uri)
+    buffer = BytesIO()
+    qr.png(buffer, scale=6)
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+       
+    
+    return render_template ('qr.html',
+        qr_code=qr_code_base64,
+        secret=user.totp_secret
+    )
+
+
 
 @main.route("/send", methods=["GET", "POST"])
 @login_required
@@ -286,46 +321,34 @@ def send_message():
 
 
 @main.route('/verify_2fa', methods=['GET', 'POST'])
-@login_required   
+  
 def verify_2fa():
     form = Verify2FAForm()   
 
+    user_id = session.get("2fa_user_id")
+    if not user_id:
+        return redirect(url_for('main.login'))
+    
+    user = User.query.get(user_id)
+    if not user:
+       session.pop('2fa_user_id', None)
+       return redirect(url_for('main.login'))
 
-    if request.method == 'POST':
-        otp = request.form.get('otp')
-        if not otp:
-            flash("Please enter the OTP code.", "error")
-            return redirect(url_for('main.verify_2fa'))
-        if form.validate_on_submit():
-           otp = form.otp.data
-
-        totp = pyotp.TOTP(current_user.totp_secret)
+    if form.validate_on_submit():
+        otp = form.otp.data
+        totp = pyotp.TOTP(user.totp_secret)
         
         if totp.verify(otp):
-            current_user.is_2fa_verified = True
-            db.session.commit()
-            
-            return redirect(url_for('main.profile'))
-        else:
-            flash("Invalid OTP code. Please try again.", "error")
+           login_user(user)
+           current_user.is_2fa_verified = True
+           session.pop('2fa_user_id', None)
+           return redirect(url_for('main.profile'))
     
-     
-    totp = pyotp.TOTP(current_user.totp_secret)
-    provisioning_uri = totp.provisioning_uri(
-        name=current_user.username,
-        issuer_name="SecureNotes"
-    )
+        flash("Invalid OTP code. Please try again.", "error")
 
-     
-    qr = pyqrcode.create(provisioning_uri)
-    buffer = BytesIO()
-    qr.png(buffer, scale=6)
-    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
+             
     return render_template('verify_2fa.html',
-                           form=form, 
-                           qr_code=qr_code_base64, 
-                           secret=current_user.totp_secret)
+                           form=form)
 
  
 

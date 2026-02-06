@@ -21,10 +21,10 @@ def create_app():
 
      
     app.config.update(
-        SECRET_KEY=os.getenv('SECRET_KEY', 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456'),
+        SECRET_KEY=os.getenv('SECRET_KEY', '${SECRET_KEY}'),
         SQLALCHEMY_DATABASE_URI=os.getenv(
             'DATABASE_URL',
-            'postgresql://postgres:abc123@db:5432/flask_notes?client_encoding=utf8'
+            'postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/flask_notes?client_encoding=utf8'
         ),
         REDIS_URL=os.getenv('REDIS_URL', 'redis://redis:6379/0'),
         PREFERRED_URL_SCHEME='https',

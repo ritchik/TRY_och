@@ -15,22 +15,17 @@
         {% if not current_user.is_2fa_verified %}
         <div class="setup-instructions">
             <p>To access your account, please:</p>
-            <ol class="instructions-list">
-                <li>Install a 2FA app like Google Authenticator or Authy</li>
-                <li>Scan the QR code below with your app</li>
-            </ol>
+             
         </div>
 
-        <div class="qr-section">
-            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
-        </div>
+         
         {% endif %}
 
         <form method="POST" action="{{ url_for('main.verify_2fa') }}">
             {{ form.hidden_tag() }}
 
             <div class="form-group">
-                <label for="otp">6-digit verification code:</label>
+                <label for="otp">6-digit verification code from app:</label>
                 <input type="text" id="otp" name="otp" required pattern="[0-9]{6}" maxlength="6" placeholder="123456">
             </div>
 
@@ -50,7 +45,7 @@
         {% endwith %}
 
         <div class="links">
-            <a href="{{ url_for('main.logout') }}">Logout</a>
+            <a href="{{ url_for('main.logout') }}">Go back</a>
         </div>
     </div>
 </body>

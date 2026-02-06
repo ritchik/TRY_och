@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 import base64
 import hashlib
@@ -6,10 +7,44 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
 from werkzeug.security import generate_password_hash
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class CryptoService:
+
+    @staticmethod
+    def get_master_key() -> bytes:
+        key = os.getenv("MASTER_KEY")
+        if not key:
+            raise RuntimeError("MASTER_KEY not set")
+        return base64.b64decode(key)
+
+    @staticmethod
+    def encrypt_totp(totp_secret: str) -> str:
+        key = CryptoService.get_master_key()
+        aesgcm = AESGCM(key)
+
+        nonce = os.urandom(12)
+        ciphertext = aesgcm.encrypt(nonce, totp_secret.encode(), None)
+
+        return base64.b64encode(nonce + ciphertext).decode()
+
+         
+    @staticmethod
+    def decrypt_totp(encrypted: str) -> str:
+        data = base64.b64decode(encrypted)
+
+        nonce = data[:12]
+        ciphertext = data[12:]
+
+        key = CryptoService.get_master_key()
+        aesgcm = AESGCM(key)
+
+        plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+        return plaintext.decode()
+
     
+
 
     @staticmethod
     def encrypt_content(content: str, password: str) -> tuple[str, str]:
